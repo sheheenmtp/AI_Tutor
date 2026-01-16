@@ -1,4 +1,4 @@
-# 🚀 Code Mastery Platform
+#  Ai_Tutor Platform
 
 An AI-driven interactive learning environment that transforms the coding practice experience. It combines a professional-grade editor with a pedagogical AI tutor that provides level-specific mentorship without giving away direct answers.
 
