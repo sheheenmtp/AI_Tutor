@@ -28,8 +28,8 @@ The platform utilizes a modern, decoupled full-stack architecture:
 
 ### 1. Prerequisites
 Ensure you have the following services active on your local network (as configured in `run.sh`):
-* **Judge0:** `http://192.168.65.238:2358`
-* **Ollama:** `http://192.168.64.251:11434` (Model: `qwen2.5-coder:14b`)
+* **Judge0:** `http://localhost:2358`
+* **Ollama:** `http://localhost:11434` (Model: `qwen2.5-coder:14b`)
 * **PostgreSQL:** A database named `codemastery`.
 
 ### 2. Backend Installation
@@ -39,3 +39,63 @@ python -m venv venv
 # Activate venv:
 # Windows: venv\Scripts\activate | macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
+```
+
+### 3. Frontend Installation
+```bash
+
+cd frontend
+npm install
+```
+
+### 4. Running the Platform
+The root directory includes a utility script to check service health and launch both servers:
+```bash
+chmod +x run.sh
+./run.sh
+```
+
+## 🔌 API Summary
+
+| Service | Endpoint | Protocol | Primary Role |
+| :--- | :--- | :--- | :--- |
+| **Backend API** | `http://localhost:8000` | REST | Business logic, Database ORM, and Service Orchestration |
+| **Code Execution** | `http://localhost:2358` | REST | Sandboxed Python execution via **Judge0** |
+| **AI Tutor** | `http://localhost:11434` | REST | LLM Feedback generation via **Ollama** (`qwen2.5-coder`) |
+| **Database** | `localhost:5432` | TCP/IP | Persistent storage for users, problems, and submissions |
+
+### Key Backend Endpoints
+- `GET /problems` - Retrieves the list of coding challenges.
+- `POST /run` - Performs a quick execution of code against sample input.
+- `POST /validate` - Checks code against all hidden test cases.
+- `POST /submit` - Finalizes a problem, calculates score, and updates user level.
+- `POST /feedback` - Generates level-specific AI tutoring hints.
+
+
+## 📁 Project Structure
+
+The repository is organized into a decoupled full-stack architecture, separating the Python backend logic from the React frontend interface.
+
+```text
+.
+├── backend/                # FastAPI Application
+│   ├── app.py              # API routes & AI tutor logic
+│   ├── models.py           # SQLAlchemy database schemas
+│   ├── requirements.txt    # Python dependencies
+│   └── venv/               # Python virtual environment (ignored by git)
+│
+├── frontend/               # React (Vite) Application
+│   ├── src/
+│   │   ├── components/     # UI Components (Editor, Sidebar, etc.)
+│   │   ├── services/       # API integration (api.js)
+│   │   ├── styles/         # Global & Component-specific CSS
+│   │   ├── App.jsx         # Main application controller
+│   │   └── main.jsx        # React entry point
+│   ├── public/             # Static assets (logos, icons)
+│   ├── index.html          # HTML template
+│   └── package.json        # Node.js dependencies & scripts
+│
+├── run.sh                  # Root orchestration & startup script
+└── .gitignore              # Files excluded from version control
+```
+
