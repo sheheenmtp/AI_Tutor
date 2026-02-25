@@ -137,3 +137,20 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# frontend
+frontend/node_modules
+frontend/dist
+
+# backend
+backend/venv
+backend/__pycache__
+backend/*.pyc
+
+# env
+backend/.env
+frontend/.env
+
+# accidental local artifacts
+=1.0
+backend/=1.0
