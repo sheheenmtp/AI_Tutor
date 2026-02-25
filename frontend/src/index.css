@@ -94,7 +94,7 @@ body {
   top: 0;
   z-index: 200;
   padding: 10px 20px;
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
 }
 
 /* ══ FLOATING BAR ═══════════════════════════════════════ */
