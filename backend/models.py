@@ -7,6 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     DateTime,
     Boolean,
+    Float,
     create_engine,
 )
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base
@@ -20,6 +21,26 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 Base = declarative_base()
+
+
+# ================= CONCEPT =================
+class Concept(Base):
+    __tablename__ = "concepts"
+
+    id = Column(String(20), primary_key=True)
+    name = Column(String(255), nullable=False)
+    axis = Column(String(100), nullable=True)
+    level = Column(String(50), nullable=True)
+    mental_model = Column(Text, nullable=True)
+    repair_strategy = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    problems = relationship("Problem", back_populates="concept")
+    learner_states = relationship(
+        "LearnerConceptState",
+        back_populates="concept",
+        cascade="all, delete-orphan"
+    )
 
 
 # ================= PROBLEM =================
@@ -36,8 +57,10 @@ class Problem(Base):
 
     input_format = Column(Text, nullable=False)
     output_format = Column(Text, nullable=False)
+    concept_id = Column(String(20), ForeignKey("concepts.id"), nullable=True)
 
-    # ✅ REQUIRED RELATIONSHIPS
+    concept = relationship("Concept", back_populates="problems")
+
     test_cases = relationship(
         "TestCase",
         back_populates="problem",
@@ -77,6 +100,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=True)
 
     current_level = Column(String(20), default="beginner")
     total_score = Column(Integer, default=0)
@@ -89,6 +113,24 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+    concept_states = relationship(
+        "LearnerConceptState",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+
+# ================= LEARNER CONCEPT STATE =================
+class LearnerConceptState(Base):
+    __tablename__ = "learner_concept_state"
+
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, nullable=False)
+    concept_id = Column(String(20), ForeignKey("concepts.id"), primary_key=True, nullable=False)
+    mastery_score = Column(Float, default=0.7)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="concept_states")
+    concept = relationship("Concept", back_populates="learner_states")
 
 
 # ================= SUBMISSION =================
@@ -135,4 +177,3 @@ def get_db():
         yield db
     finally:
         db.close()
-

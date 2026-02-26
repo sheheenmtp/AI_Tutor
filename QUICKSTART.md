@@ -1,105 +1,74 @@
-# 🚀 Quick Start Guide
+# Quick Start
 
-## Step-by-Step Setup
+## 1. Prerequisites
 
-### 1. Prerequisites Check
+- Python 3.10+
+- Node.js 18+
+- PostgreSQL running with a created database
+- Judge0 running and reachable
+- Ollama running and reachable
 
-```bash
-# Check Python
-python3 --version  # Should be 3.8+
+## 2. Configure Environment Files
 
-# Check Node.js
-node --version     # Should be 16+
+Create `backend/.env`:
 
-# Check Docker
-docker --version
-
-# Check Ollama
-ollama --version
+```env
+DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:5432/<db_name>
+JUDGE0_URL=http://localhost:2358
+OLLAMA_URL=http://localhost:11434
 ```
 
-### 2. Run Setup Scripts
+Create `frontend/.env`:
 
-```bash
-# Make scripts executable
-chmod +x setup_backend.sh setup_frontend.sh setup_runner.sh
-
-# Run in order
-./setup_backend.sh
-./setup_frontend.sh
-./setup_runner.sh
+```env
+VITE_API_URL=http://localhost:8000
 ```
 
-### 3. Start Required Services
+## 3. Install Dependencies
 
-**Terminal 1 - Judge0:**
+Backend:
+
 ```bash
-docker run -d -p 2358:2358 judge0/judge0:latest
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-**Terminal 2 - Ollama:**
+Frontend:
+
 ```bash
-ollama serve
+cd frontend
+npm install
 ```
 
-**Terminal 3 - Pull AI Model:**
+## 4. Seed Initial Problems
+
 ```bash
-ollama pull qwen2.5-coder:3b
+cd backend
+source venv/bin/activate
+python seed_data.py
 ```
 
-### 4. Launch Platform
+## 5. Run the Platform
+
+From repo root:
 
 ```bash
+chmod +x run.sh
 ./run.sh
 ```
 
-### 5. Access Platform
+## 6. Open the App
 
-Open your browser to: **http://localhost:5173**
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
 
-## 🎮 First Steps
+## Common Checks
 
-1. **Check Status**: Look at the top-left status indicators
-   - Judge0: ✓ (green) = ready
-   - AI Tutor: ✓ (green) = ready
+- Health status: `GET http://localhost:8000/health`
+- Judge0 languages: `GET http://localhost:8000/languages`
 
-2. **Start with Problem 1**: "Hello World"
-   - Read the description
-   - Write your code
-   - Click "Run Code" to test
-   - Click "Submit" to validate
+## Note
 
-3. **Progress**: 
-   - Solve 5 beginner problems to unlock intermediate
-   - Watch your score increase!
-   - Get AI hints if stuck
-
-## 🆘 Common Issues
-
-**"Judge0 offline"**: 
-```bash
-docker ps  # Check if container is running
-docker run -d -p 2358:2358 judge0/judge0:latest
-```
-
-**"Ollama offline"**:
-```bash
-# Start in new terminal
-ollama serve
-```
-
-**"No output"**: Check if your code has `print()` statements
-
-**"Tests failed"**: Compare your output with expected output carefully
-
-## 💡 Tips
-
-- Use "Run Code" for quick testing with sample input
-- Use "Submit" to validate against all test cases
-- Get AI hints only after attempting the problem
-- Read problem descriptions carefully
-- Check sample test cases for examples
-
----
-
-**Need help?** Check the full README.md for detailed documentation.
+Frontend currently uses `userId = 3` in `frontend/src/App.jsx`. Ensure that user exists in your database, or change it.

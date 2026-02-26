@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Terminal, CheckCircle2, XCircle, AlertCircle, Trophy, Sparkles, Play, X, Copy, Maximize2 } from 'lucide-react';
 
 export default function ResultsPanel({
@@ -28,10 +28,19 @@ export default function ResultsPanel({
 
   const visibleTabs = getVisibleTabs();
 
-  // If no active tab is valid, select first available
-  if (visibleTabs.length > 0 && !visibleTabs.find(t => t.id === activeTab)) {
-    setActiveTab(visibleTabs[0].id);
-  }
+  // Keep active tab valid as available tabs change
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.find(t => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [visibleTabs, activeTab]);
+
+  // Auto-open AI feedback tab when a response arrives
+  useEffect(() => {
+    if (aiFeedback) {
+      setActiveTab('ai');
+    }
+  }, [aiFeedback]);
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);

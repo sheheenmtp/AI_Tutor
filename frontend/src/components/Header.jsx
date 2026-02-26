@@ -1,15 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Sun, Moon, Code2, Zap, ChevronDown, ChevronRight, User, Activity, Settings, LogOut } from 'lucide-react';
-
-const LEVEL_CONFIG = {
-  beginner:     { color: '#34d399', gradient: 'linear-gradient(90deg,#10b981,#34d399)' },
-  intermediate: { color: '#fbbf24', gradient: 'linear-gradient(90deg,#f59e0b,#fbbf24)' },
-  advanced:     { color: '#fb7185', gradient: 'linear-gradient(90deg,#e11d48,#fb7185)' },
-};
+import { Sun, Moon, Code2, Zap, ChevronDown, User, Activity, Settings, LogOut } from 'lucide-react';
 
 export default function Header({ user, theme, onThemeToggle, onLogout }) {
   const level  = user?.current_level ?? 'beginner';
-  const lvlCfg = LEVEL_CONFIG[level] ?? LEVEL_CONFIG.beginner;
 
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef(null);
@@ -119,51 +112,6 @@ export default function Header({ user, theme, onThemeToggle, onLogout }) {
           )}
         </div>
       </div>
-
-      {/* ── Progress strip ──────────────────────────── */}
-      {user && <ProgressStrip user={user} lvlCfg={lvlCfg} />}
-
     </header>
   );
 }
-
-function ProgressStrip({ user, lvlCfg }) {
-  const levels = ['beginner', 'intermediate', 'advanced'];
-  const labels = ['Beginner', 'Intermediate', 'Advanced'];
-  const idx    = levels.indexOf(user.current_level);
-
-  const thresholds = [0, 5, 15, 30];
-  const start = thresholds[idx]     ?? 0;
-  const end   = thresholds[idx + 1] ?? start + 15;
-  const pct   = Math.min(100, Math.max(0,
-    Math.round(((user.problems_solved - start) / (end - start)) * 100)
-  ));
-
-  return (
-    <div className="progress-section">
-      <div className="progress-breadcrumb">
-        {labels.map((label, i) => (
-          <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span
-              className={`progress-step${i < idx ? ' done' : ''}${i === idx ? ' current' : ''}`}
-              style={i === idx ? { color: lvlCfg.color } : undefined}
-            >
-              {label}
-            </span>
-            {i < 2 && (
-              <span className="progress-chevron">
-                <ChevronRight size={10} />
-              </span>
-            )}
-          </span>
-        ))}
-      </div>
-
-      <div className="progress-track">
-        <div className="progress-fill" style={{ width: `${pct}%`, background: lvlCfg.gradient }} />
-      </div>
-
-      <span className="progress-pct" style={{ color: lvlCfg.color }}>{pct}%</span>
-    </div>
-  );
-} 
