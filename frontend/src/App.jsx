@@ -9,7 +9,9 @@ import {
   getProblem,
   validateSolution,
   submitSolution,
-  getFeedback,
+  getFeedbackStream,
+  registerUser,
+  loginUser,
 } from "./services/api";
 
 export default function App() {
@@ -27,12 +29,24 @@ export default function App() {
   const [runOutput, setRunOutput] = useState("");
   const [submissionResult, setSubmissionResult] = useState(null);
   const [aiFeedback, setAiFeedback] = useState("");
+  const [authUser, setAuthUser] = useState(() => {
+    const raw = localStorage.getItem("auth-user");
+    return raw ? JSON.parse(raw) : null;
+  });
+  const [authMode, setAuthMode] = useState("login");
+  const [authForm, setAuthForm] = useState({ username: "", password: "" });
+  const [authError, setAuthError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
 
-  const userId = 3;
+  const userId = authUser?.id ?? null;
 
   // Refs for resize elements
   const sidebarRef = useRef(null);
   const resultsContainerRef = useRef(null);
+  const editorContainerRef = useRef(null);
+  const rightPanelRef = useRef(null);
+  const verticalHandleRef = useRef(null);
+  const horizontalHandleRef = useRef(null);
   const workspaceRef = useRef(null);
 
   // Run button removed - only Validate and Submit remain
@@ -42,160 +56,108 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    loadProgress();
     checkHealth().then(setHealth);
-
-    const interval = setInterval(() => {
-      checkHealth().then(setHealth);
-    }, 15000);
-
+    const interval = setInterval(() => checkHealth().then(setHealth), 15000);
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize vertical resize functionality
   useEffect(() => {
-    const initVerticalResize = () => {
-      const handle = document.querySelector('.vertical-resize-handle');
-      const sidebar = sidebarRef.current;
+    if (!userId) {
+      setUser(null);
+      setProgress(null);
+      setCurrentProblem(null);
+      return;
+    }
+    loadProgress(userId);
+  }, [userId]);
 
-      if (!handle || !sidebar) {
-        // Retry after a short delay if elements aren't ready
-        setTimeout(initVerticalResize, 100);
-        return;
-      }
+  const handleVerticalResizeStart = (event) => {
+    event.preventDefault();
+    const handle = verticalHandleRef.current;
+    const sidebar = sidebarRef.current;
+    if (!handle || !sidebar) return;
 
-      const onMouseDown = (e) => {
-        e.preventDefault();
-        document.body.style.userSelect = 'none';
-        document.body.style.cursor = 'col-resize';
-        handle.classList.add('dragging');
+    const startX = event.clientX;
+    const startWidth = sidebar.getBoundingClientRect().width;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    handle.classList.add("dragging");
 
-        const startX = e.clientX;
-        const startWidth = parseInt(document.defaultView.getComputedStyle(sidebar).width, 10);
-
-        const doDrag = (e) => {
-          const newWidth = startWidth + (e.clientX - startX);
-          // Apply constraints: min 200px, max 50% of viewport
-          const minWidth = 200;
-          const maxWidth = window.innerWidth * 0.5;
-          const constrainedWidth = Math.min(Math.max(newWidth, minWidth), maxWidth);
-          sidebar.style.width = `${constrainedWidth}px`;
-        };
-
-        const stopDrag = () => {
-          document.removeEventListener('mousemove', doDrag);
-          document.removeEventListener('mouseup', stopDrag);
-          document.body.style.userSelect = '';
-          document.body.style.cursor = '';
-          handle.classList.remove('dragging');
-        };
-
-        document.addEventListener('mousemove', doDrag);
-        document.addEventListener('mouseup', stopDrag);
-      };
-
-      handle.addEventListener('mousedown', onMouseDown);
-
-      // Cleanup function
-      return () => {
-        handle.removeEventListener('mousedown', onMouseDown);
-      };
+    const onMouseMove = (moveEvent) => {
+      const newWidth = startWidth + (moveEvent.clientX - startX);
+      const minWidth = 260;
+      const maxWidth = window.innerWidth * 0.6;
+      const constrainedWidth = Math.min(Math.max(newWidth, minWidth), maxWidth);
+      sidebar.style.width = `${constrainedWidth}px`;
     };
 
-    initVerticalResize();
-  }, []);
-
-  // Initialize horizontal resize functionality
-  useEffect(() => {
-    const initHorizontalResize = () => {
-      const handle = document.querySelector('.horizontal-resize-handle');
-      const resultsContainer = resultsContainerRef.current;
-      const editorContainer = document.querySelector('.editor-container');
-
-      if (!handle || !resultsContainer || !editorContainer) {
-        // Retry after a short delay if elements aren't ready
-        setTimeout(initHorizontalResize, 100);
-        return;
-      }
-
-      const onMouseDown = (e) => {
-        e.preventDefault();
-        document.body.style.userSelect = 'none';
-        document.body.style.cursor = 'row-resize';
-        handle.classList.add('dragging');
-        editorContainer.classList.add('resizing');
-        const editorWrapper = editorContainer.querySelector('.editor-wrapper');
-        if (editorWrapper) {
-          editorWrapper.classList.add('resizing');
-        }
-
-        const startY = e.clientY;
-        const startResultsHeight = parseInt(document.defaultView.getComputedStyle(resultsContainer).height, 10);
-        const totalContainerHeight = resultsContainer.parentElement.clientHeight;
-
-        const doDrag = (e) => {
-          const deltaY = e.clientY - startY;
-          const newResultsHeight = startResultsHeight - deltaY;
-
-          // Apply constraints: min 80px, max 70% of right panel height
-          const minHeight = 80;
-          const maxHeight = totalContainerHeight * 0.7;
-          const constrainedResultsHeight = Math.min(Math.max(newResultsHeight, minHeight), maxHeight);
-
-          // Update flex properties instead of fixed heights for better responsiveness
-          resultsContainer.style.flex = 'none';
-          resultsContainer.style.height = `${constrainedResultsHeight}px`;
-
-          // Adjust editor container to fill remaining space
-          editorContainer.style.flex = 'none';
-          const editorHeight = totalContainerHeight - constrainedResultsHeight - 4; // 4px for handle
-          editorContainer.style.height = `${editorHeight}px`;
-        };
-
-        const stopDrag = () => {
-          document.removeEventListener('mousemove', doDrag);
-          document.removeEventListener('mouseup', stopDrag);
-          document.body.style.userSelect = '';
-          document.body.style.cursor = '';
-          handle.classList.remove('dragging');
-          editorContainer.classList.remove('resizing');
-          const editorWrapper = editorContainer.querySelector('.editor-wrapper');
-          if (editorWrapper) {
-            editorWrapper.classList.remove('resizing');
-          }
-        };
-
-        document.addEventListener('mousemove', doDrag);
-        document.addEventListener('mouseup', stopDrag);
-      };
-
-      handle.addEventListener('mousedown', onMouseDown);
-
-      // Cleanup function
-      return () => {
-        handle.removeEventListener('mousedown', onMouseDown);
-      };
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      handle.classList.remove("dragging");
     };
 
-    initHorizontalResize();
-  }, []);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
+  const handleHorizontalResizeStart = (event) => {
+    event.preventDefault();
+    const handle = horizontalHandleRef.current;
+    const resultsContainer = resultsContainerRef.current;
+    const editorContainer = editorContainerRef.current;
+    const rightPanel = rightPanelRef.current;
+    if (!handle || !resultsContainer || !editorContainer || !rightPanel) return;
+
+    const startY = event.clientY;
+    const startResultsHeight = resultsContainer.getBoundingClientRect().height;
+    const totalContainerHeight = rightPanel.getBoundingClientRect().height;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "row-resize";
+    handle.classList.add("dragging");
+    editorContainer.classList.add("resizing");
+
+    const onMouseMove = (moveEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      const newResultsHeight = startResultsHeight - deltaY;
+      const minHeight = 120;
+      const maxHeight = totalContainerHeight * 0.75;
+      const constrainedResultsHeight = Math.min(Math.max(newResultsHeight, minHeight), maxHeight);
+
+      resultsContainer.style.flex = "0 0 auto";
+      resultsContainer.style.height = `${constrainedResultsHeight}px`;
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      handle.classList.remove("dragging");
+      editorContainer.classList.remove("resizing");
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
 
   // Handle window resize for responsive adjustments
   useEffect(() => {
     const handleWindowResize = () => {
       // Reset any fixed heights to allow responsive behavior
       if (resultsContainerRef.current) {
-        resultsContainerRef.current.style.height = '';
-        resultsContainerRef.current.style.flex = ''; // Reset flex property
+        resultsContainerRef.current.style.height = "";
+        resultsContainerRef.current.style.flex = "";
       }
       if (sidebarRef.current) {
-        sidebarRef.current.style.width = '';
+        sidebarRef.current.style.width = "";
       }
       // Reset editor container styles
-      const editorContainer = document.querySelector('.editor-container');
-      if (editorContainer) {
-        editorContainer.style.height = '';
-        editorContainer.style.flex = ''; // Reset flex property
+      if (editorContainerRef.current) {
+        editorContainerRef.current.style.height = "";
+        editorContainerRef.current.style.flex = "";
       }
     };
 
@@ -203,8 +165,8 @@ export default function App() {
     return () => window.removeEventListener('resize', handleWindowResize);
   }, []);
 
-  const loadProgress = async () => {
-    const prog = await getUserProgress(userId);
+  const loadProgress = async (uid = userId) => {
+    const prog = await getUserProgress(uid);
     setUser(prog.user);
     setProgress(prog);
 
@@ -231,7 +193,7 @@ export default function App() {
   };
 
   const handleValidate = async () => {
-    if (!currentProblem) return;
+    if (!currentProblem || !userId) return;
 
     setLoading(true);
     setRunOutput("");
@@ -258,7 +220,7 @@ export default function App() {
   };
 
   const handleSubmit = async () => {
-    if (!currentProblem) return;
+    if (!currentProblem || !userId) return;
 
     setLoading(true);
     setRunOutput("");
@@ -293,6 +255,7 @@ export default function App() {
     if (!runOutput || !user || !currentProblem) return;
 
     setLoading(true);
+    setAiFeedback("");
 
     try {
       const expectedOutput =
@@ -300,15 +263,15 @@ export default function App() {
           ? sampleTests[0].expected_output
           : "";
 
-      const fb = await getFeedback({
+      await getFeedbackStream({
         level: user.current_level,
         problem_description: currentProblem.description,
         user_code: code,
         expected_output: expectedOutput,
         actual_output: runOutput,
+      }, (chunk) => {
+        setAiFeedback((prev) => prev + chunk);
       });
-
-      setAiFeedback(fb.feedback);
     } catch (e) {
       setAiFeedback(`Error: ${e.message}`);
     } finally {
@@ -322,9 +285,110 @@ export default function App() {
     }
   };
 
+  const handleAuthChange = (field, value) => {
+    setAuthForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const payload = {
+        username: authForm.username.trim(),
+        password: authForm.password,
+      };
+      const result = authMode === "register"
+        ? await registerUser(payload)
+        : await loginUser(payload);
+      setAuthUser(result.user);
+      localStorage.setItem("auth-user", JSON.stringify(result.user));
+      setAuthForm({ username: "", password: "" });
+    } catch (err) {
+      setAuthError(err.message || "Authentication failed");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("auth-user");
+    setAuthUser(null);
+    setUser(null);
+    setProgress(null);
+    setCurrentProblem(null);
+    setCode("");
+    setRunOutput("");
+    setSubmissionResult(null);
+    setAiFeedback("");
+  };
+
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
+
+  if (!authUser) {
+    return (
+      <div className="app loading-screen" style={{ justifyContent: "center", alignItems: "center" }}>
+        <form
+          onSubmit={handleAuthSubmit}
+          style={{
+            width: "100%",
+            maxWidth: 360,
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border-primary)",
+            borderRadius: 12,
+            padding: 20,
+            display: "flex",
+            flexDirection: "column",
+            gap: 12
+          }}
+        >
+          <h2 style={{ margin: 0 }}>{authMode === "login" ? "Login" : "Register"}</h2>
+          <input
+            value={authForm.username}
+            onChange={(e) => handleAuthChange("username", e.target.value)}
+            placeholder="Username"
+            required
+            style={{ padding: 10, borderRadius: 8, border: "1px solid var(--border-primary)" }}
+          />
+          <input
+            type="password"
+            value={authForm.password}
+            onChange={(e) => handleAuthChange("password", e.target.value)}
+            placeholder="Password"
+            required
+            style={{ padding: 10, borderRadius: 8, border: "1px solid var(--border-primary)" }}
+          />
+          {authError && <div style={{ color: "#ef4444", fontSize: 13 }}>{authError}</div>}
+          <button
+            type="submit"
+            disabled={authLoading}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "none",
+              background: "var(--color-purple)",
+              color: "white",
+              cursor: "pointer"
+            }}
+          >
+            {authLoading ? "Please wait..." : authMode === "login" ? "Login" : "Create account"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode((m) => (m === "login" ? "register" : "login"));
+              setAuthError("");
+            }}
+            style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+          >
+            {authMode === "login" ? "Need an account? Register" : "Already have an account? Login"}
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (!currentProblem) {
     return (
@@ -341,14 +405,13 @@ export default function App() {
     <div className="app">
       <Header
         user={user}
-        progress={progress}
-        health={health}
         theme={theme}
         onThemeToggle={toggleTheme}
+        onLogout={handleLogout}
       />
 
       <div className="workspace" ref={workspaceRef}>
-        <div className="sidebar" ref={sidebarRef}>
+        <div className="sidebar-pane" ref={sidebarRef}>
           <ProblemSidebar
             problem={currentProblem}
             sampleTests={sampleTests}
@@ -356,9 +419,13 @@ export default function App() {
             onNextProblem={handleNextProblem}
           />
         </div>
-        <div className="vertical-resize-handle"></div>
-        <div className="right-panel">
-          <div className="editor-container">
+        <div
+          className="vertical-resize-handle"
+          ref={verticalHandleRef}
+          onMouseDown={handleVerticalResizeStart}
+        ></div>
+        <div className="right-panel" ref={rightPanelRef}>
+          <div className="editor-pane" ref={editorContainerRef}>
             <CodeEditor
               code={code}
               setCode={setCode}
@@ -371,8 +438,12 @@ export default function App() {
               currentProblemId={currentProblem?.id}
             />
           </div>
-          <div className="horizontal-resize-handle"></div>
-          <div className="results-container" ref={resultsContainerRef}>
+          <div
+            className="horizontal-resize-handle"
+            ref={horizontalHandleRef}
+            onMouseDown={handleHorizontalResizeStart}
+          ></div>
+          <div className="results-pane" ref={resultsContainerRef}>
             <ResultsPanel
               runOutput={runOutput}
               submissionResult={submissionResult}

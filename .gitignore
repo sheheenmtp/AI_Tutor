@@ -144,8 +144,15 @@ frontend/dist
 
 # backend
 backend/venv
+backend/.venv
+backend/ENV
+backend/env
 backend/__pycache__
+backend/**/__pycache__/
 backend/*.pyc
+backend/**/*.py[cod]
+backend/.pytest_cache/
+backend/.mypy_cache/
 
 # env
 backend/.env
@@ -154,3 +161,7 @@ frontend/.env
 # accidental local artifacts
 =1.0
 backend/=1.0
+
+# local database dump artifacts
+codemastery_full.sql
+codemastery_schema.sql
