@@ -242,7 +242,7 @@ export default function App() {
 
       if (res.all_passed) {
         localStorage.removeItem(`code-save-${currentProblem.id}`);
-        setTimeout(loadProgress, 1000);
+        setTimeout(() => loadProgress(), 1000);
       }
     } catch (e) {
       setRunOutput(`Error: ${e.message}`);
