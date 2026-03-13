@@ -165,3 +165,7 @@ backend/=1.0
 # local database dump artifacts
 codemastery_full.sql
 codemastery_schema.sql
+problem_concept_backfill.sql
+user_auth_migration.sql
+problem_concept_backfill.sql
+user_auth_migration.sql

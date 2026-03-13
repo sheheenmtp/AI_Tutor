@@ -108,6 +108,4 @@ App URLs:
 
 ## Notes
 
-- Frontend currently uses a fixed `userId = 3` in `frontend/src/App.jsx`.
-- Ensure that user exists in your database, or update the frontend to a valid user id.
 - `run.sh` reads `backend/.env` if present and uses those URLs for Judge0 and Ollama.
