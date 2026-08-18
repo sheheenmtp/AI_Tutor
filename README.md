@@ -6,6 +6,12 @@ AI Tutor is a full-stack coding practice app with:
 - Judge0 for code execution
 - Ollama for level-aware feedback
 
+## Knowledge Transfer
+
+For handover and system internals, see:
+- [`KNOWLEDGE_TRANSFER.md`](KNOWLEDGE_TRANSFER.md)
+- [`ADAPTIVE_SYSTEM_DEEP_DIVE.md`](ADAPTIVE_SYSTEM_DEEP_DIVE.md)
+
 ## Tech Stack
 
 - Frontend: React (Vite), Monaco Editor
@@ -78,14 +84,18 @@ App URLs:
 ## API Endpoints
 
 - `GET /health`
+- `POST /auth/register`
+- `POST /auth/login`
 - `GET /users/{user_id}`
 - `GET /users/{user_id}/progress`
+- `GET /users/{user_id}/next-recommendation`
 - `GET /problems`
 - `GET /problems/{problem_id}`
 - `POST /run`
 - `POST /validate`
 - `POST /submit`
 - `POST /feedback`
+- `POST /feedback/stream`
 - `GET /languages`
 
 ## Project Structure

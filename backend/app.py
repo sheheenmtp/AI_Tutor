@@ -79,11 +79,25 @@ def serialize_user(user: User):
     return {
         "id": user.id,
         "username": user.username,
-        "current_level": user.current_level,
+        "current_level": normalize_level(user.current_level),
         "total_score": user.total_score,
         "problems_solved": user.problems_solved,
         "created_at": user.created_at
     }
+
+
+def normalize_level(level: Optional[str]) -> str:
+    if not level:
+        return "beginner"
+
+    normalized = level.strip().lower().replace(" ", "_")
+    # Backward compatibility: treat legacy `advanced_1` as `expert`.
+    if normalized == "advanced_1":
+        return "expert"
+
+    if normalized in {"beginner", "intermediate", "expert", "advanced"}:
+        return normalized
+    return "beginner"
 
 
 def hash_password(password: str) -> str:
@@ -108,7 +122,8 @@ def verify_password(password: str, encoded: str) -> bool:
 
 # ================= HELPER FUNCTIONS =================
 def get_level_guidelines(level: str) -> str:
-    if level == "beginner":
+    normalized_level = normalize_level(level)
+    if normalized_level == "beginner":
         return """
 TONE & COMPLEXITY:
 - Use very simple language
@@ -118,7 +133,7 @@ TONE & COMPLEXITY:
 - Focus on basic logic mistakes
 - Be very encouraging
 """
-    elif level == "intermediate":
+    elif normalized_level == "intermediate":
         return """
 TONE & COMPLEXITY:
 - Use correct programming terminology
@@ -126,6 +141,15 @@ TONE & COMPLEXITY:
 - Mention common patterns or approaches
 - Avoid giving full solutions
 - Balance encouragement with technical clarity
+"""
+    elif normalized_level == "expert":
+        return """
+TONE & COMPLEXITY:
+- Use technical language confidently, but keep explanations approachable
+- Focus on design choices, constraints, and tradeoffs
+- Encourage debugging mindset and step-wise reasoning
+- Mention efficiency when relevant without over-optimizing
+- Keep tone direct and supportive
 """
     else:  # advanced
         return """
@@ -328,12 +352,15 @@ def get_next_problem_for_user(user_id: int, db: Session):
     return recommendation["problem"]
 
 def get_allowed_difficulties(level: str):
-    if level == "beginner":
+    normalized_level = normalize_level(level)
+    if normalized_level == "beginner":
         return ["beginner"]
-    elif level == "intermediate":
+    elif normalized_level == "intermediate":
         return ["beginner", "intermediate"]
+    elif normalized_level == "expert":
+        return ["beginner", "intermediate", "advanced 1", "advanced_1", "expert"]
     else:
-        return ["beginner", "intermediate", "advanced"]
+        return ["beginner", "intermediate", "advanced 1", "advanced_1", "expert", "advanced"]
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -351,7 +378,7 @@ def get_or_create_concept_state(user_id: int, concept_id: str, db: Session):
     state = LearnerConceptState(
         user_id=user_id,
         concept_id=concept_id,
-        mastery_score=0.7
+        mastery_score=0
     )
     db.add(state)
     return state
@@ -364,15 +391,19 @@ def update_concept_mastery(user_id: int, problem_id: int, passed: bool, db: Sess
 
     state = get_or_create_concept_state(user_id, problem.concept_id, db)
     old_score = state.mastery_score if state.mastery_score is not None else 0.7
-    delta = 0.08 if passed else -0.04
-    new_score = clamp(old_score + delta, 0.0, 1.0)
+    target_delta = 0.08 if passed else -0.04
+    unclamped_score = old_score + target_delta
+    new_score = clamp(unclamped_score, 0.0, 1.0)
+    applied_delta = new_score - old_score
     state.mastery_score = new_score
 
     return {
         "concept_id": problem.concept_id,
         "old_score": round(old_score, 3),
         "new_score": round(new_score, 3),
-        "delta": round(delta, 3)
+        "delta": round(applied_delta, 3),
+        "target_delta": round(target_delta, 3),
+        "capped": new_score != unclamped_score
     }
 
 
@@ -380,6 +411,8 @@ def build_problem_recommendation(user_id: int, db: Session):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
+
+    user_level = normalize_level(user.current_level)
 
     solved = db.query(Submission.problem_id).filter(
         Submission.user_id == user_id,
@@ -399,7 +432,7 @@ def build_problem_recommendation(user_id: int, db: Session):
     recent_fail_set = set(recent_failed_ids)
 
     candidate_query = db.query(Problem).filter(
-        Problem.difficulty.in_(get_allowed_difficulties(user.current_level))
+        Problem.difficulty.in_(get_allowed_difficulties(user_level))
     )
     if solved_ids:
         candidate_query = candidate_query.filter(Problem.id.notin_(list(solved_ids)))
@@ -429,9 +462,21 @@ def build_problem_recommendation(user_id: int, db: Session):
     if solved_ids:
         solved_order_indices = db.query(Problem.order_index).filter(Problem.id.in_(list(solved_ids))).all()
         solved_orders = [row[0] for row in solved_order_indices]
-        progress_anchor = max(solved_orders) if solved_orders else 0
+        submission_progress_anchor = max(solved_orders) if solved_orders else 0
     else:
-        progress_anchor = 0
+        submission_progress_anchor = 0
+
+    # DB can contain historical users where `problems_solved` is ahead of submission history.
+    # Use profile progress as a fallback anchor so recommendations do not reset to early problems.
+    profile_progress_anchor = 0
+    profile_solved_count = max(user.problems_solved or 0, 0)
+    if profile_solved_count > 0 and profile_solved_count > len(solved_ids):
+        ordered_indices = [row[0] for row in db.query(Problem.order_index).order_by(Problem.order_index.asc()).all()]
+        if ordered_indices:
+            anchor_idx = min(profile_solved_count, len(ordered_indices)) - 1
+            profile_progress_anchor = ordered_indices[anchor_idx]
+
+    progress_anchor = max(submission_progress_anchor, profile_progress_anchor)
 
     now = datetime.utcnow()
     best_problem = None
@@ -444,12 +489,13 @@ def build_problem_recommendation(user_id: int, db: Session):
 
         if problem.concept_id:
             mastery = concept_mastery_cache.get(problem.concept_id, 0.7)
-            weakness = 1.0 - mastery
-            weakness_score = weakness * 60
-            score += weakness_score
-            reasons.append(f"weakness +{weakness_score:.1f} (concept {problem.concept_id}, mastery={mastery:.2f})")
+            # Center concept signal around baseline mastery so unknown concepts (0.7 default)
+            # don't introduce a constant score bias when learner state is sparse.
+            concept_score = (0.7 - mastery) * 60
+            score += concept_score
+            reasons.append(f"concept adjustment {concept_score:+.1f} (concept {problem.concept_id}, mastery={mastery:.2f})")
 
-            if problem.concept_id == last_concept_id and mastery > 0.55:
+            if problem.concept_id == last_concept_id and mastery > 0.75:
                 score -= 8
                 reasons.append("repeat-concept penalty -8.0 to avoid monotony")
 
@@ -477,6 +523,11 @@ def build_problem_recommendation(user_id: int, db: Session):
         progression_bonus = max(0.0, 12 - min(distance_from_anchor, 12))
         score += progression_bonus
         reasons.append(f"progression fit +{progression_bonus:.1f}")
+
+        if profile_progress_anchor > submission_progress_anchor and problem.order_index <= progress_anchor:
+            lag_penalty = min((progress_anchor - problem.order_index + 1) * 0.6, 8)
+            score -= lag_penalty
+            reasons.append(f"profile lag penalty -{lag_penalty:.1f}")
 
         submission_for_problem = next((s for s in user_submissions if s.problem_id == problem.id), None)
         if submission_for_problem and submission_for_problem.submitted_at:
@@ -584,6 +635,7 @@ def submit_solution(req: SubmitRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == req.user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
+    user.current_level = normalize_level(user.current_level)
     
     # 3. Update User Progress
     if results["all_passed"]:
@@ -602,6 +654,8 @@ def submit_solution(req: SubmitRequest, db: Session = Depends(get_db)):
             if user.current_level == "beginner" and user.problems_solved >= 5:
                 user.current_level = "intermediate"
             elif user.current_level == "intermediate" and user.problems_solved >= 10:
+                user.current_level = "expert"
+            elif user.current_level == "expert" and user.problems_solved >= 15:
                 user.current_level = "advanced"
 
     mastery_update = update_concept_mastery(

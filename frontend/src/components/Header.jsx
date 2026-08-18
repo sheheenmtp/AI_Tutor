@@ -1,8 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
-import { Sun, Moon, Code2, Zap, ChevronDown, User, Activity, Settings, LogOut } from 'lucide-react';
+import { Sun, Moon, Code2, Zap, ChevronDown, User, Activity, Settings, LogOut, LayoutList } from 'lucide-react';
 
-export default function Header({ user, theme, onThemeToggle, onLogout }) {
-  const level  = user?.current_level ?? 'beginner';
+export default function Header({
+  user,
+  progress,
+  theme,
+  onThemeToggle,
+  onLogout,
+  questionBankOpen = false,
+  onToggleQuestionBank,
+  onOpenProfile
+}) {
+  const levelRaw = user?.current_level ? user.current_level : 'beginner';
+  const levelKey = levelRaw.toLowerCase().replace(/\s+/g, '_');
+  const levelLabel = levelKey
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef(null);
@@ -43,9 +57,19 @@ export default function Header({ user, theme, onThemeToggle, onLogout }) {
         <div className="header-right">
           {user && (
             <>
-              <div className={`level-pill ${level}`}>
+              <button
+                className="question-bank-toggle"
+                onClick={onToggleQuestionBank}
+              >
+                <LayoutList size={14} />
+                {questionBankOpen ? "Workspace" : "Questions"}
+              </button>
+
+              <div className="hd" />
+
+              <div className={`level-pill ${levelKey}`}>
                 <Zap size={10} fill="currentColor" strokeWidth={0} />
-                {level.charAt(0).toUpperCase() + level.slice(1)}
+                {levelLabel}
               </div>
 
               <div className="hd" />
@@ -93,11 +117,24 @@ export default function Header({ user, theme, onThemeToggle, onLogout }) {
                   <div className="dd-avatar">{initials}</div>
                   <div>
                     <div className="dd-user-name">{user.username ?? 'User'}</div>
-                    <div className="dd-user-email">{user.email ?? ''}</div>
+                    <div className="dd-user-email">
+                      {progress?.next_problem?.title
+                        ? `Next: ${progress.next_problem.title}`
+                        : ''}
+                    </div>
                   </div>
                 </div>
 
-                <div className="dd-item"><User size={15} />Profile</div>
+                <div
+                  className="dd-item"
+                  onClick={() => {
+                    onOpenProfile?.();
+                    setDropOpen(false);
+                  }}
+                >
+                  <User size={15} />
+                  Profile
+                </div>
                 <div className="dd-item"><Activity size={15} />My Progress</div>
                 <div className="dd-item"><Settings size={15} />Settings</div>
 
