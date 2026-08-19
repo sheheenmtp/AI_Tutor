@@ -1,31 +1,3 @@
-# AI_Tutor
-
-AI_Tutor is a monorepo containing two learning applications:
-
-- `pytutor/` — coding practice platform (Judge0 execution + Ollama hints)
-- `course_tutor/` — adaptive course platform (Linux course provided)
-
-Repository highlights:
-
-- Backends: FastAPI + SQLAlchemy (PostgreSQL)
-- Frontends: Vite + React
-- LLM: Ollama-compatible endpoints supported
-- Code execution: Judge0 integration
-
-See `docs/` for architecture and setup instructions.
-
-To get started locally:
-
-1. Copy `.env.example` to `.env` and set values.
-2. Start the database (Postgres) and optional services:
-
-```bash
-# Example using Docker Compose if provided per-application
-docker compose -f course_tutor/docker-compose.yml up -d
-docker compose -f pytutor/legacy_py_tutor/docker-compose.yml up -d
-```
-
-3. Start backends and frontends as documented in `docs/setup.md`.
 # AI Tutor
 
 A full-stack coding practice platform for learners to solve problems, validate code, track progress, and receive AI-guided hints.

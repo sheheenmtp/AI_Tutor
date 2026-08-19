@@ -1,3 +1,52 @@
+# Environment
+.env
+.env.local
+
+# Python
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+package-lock.json
+pnpm-lock.yaml
+
+# Frontend build outputs
+/frontend/dist/
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Model/cache files
+model_cache/
+*.ckpt
+*.pt
+
+# Docker
+*.tgz
 # Operating system and editor files
 .DS_Store
 Thumbs.db

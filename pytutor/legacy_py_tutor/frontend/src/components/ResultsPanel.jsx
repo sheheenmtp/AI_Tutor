@@ -31,6 +31,8 @@ export default function ResultsPanel({
   // Keep active tab valid as available tabs change
   useEffect(() => {
     if (visibleTabs.length > 0 && !visibleTabs.find(t => t.id === activeTab)) {
+      // This state tracks the user's selected tab as the available tab set changes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab(visibleTabs[0].id);
     }
   }, [visibleTabs, activeTab]);
@@ -38,6 +40,8 @@ export default function ResultsPanel({
   // Auto-open AI feedback tab when a response arrives
   useEffect(() => {
     if (aiFeedback) {
+      // A newly received response should immediately reveal the AI feedback tab.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('ai');
     }
   }, [aiFeedback]);
@@ -97,7 +101,7 @@ export default function ResultsPanel({
               onClick={() => handleCopy(runOutput)}
               title="Copy output"
             >
-              <Copy size={14} />
+              {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
             </button>
           )}
         </div>

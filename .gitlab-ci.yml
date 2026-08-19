@@ -1,0 +1,57 @@
+stages:
+  - verify
+  - build
+
+default:
+  interruptible: true
+
+backend:verify:
+  stage: verify
+  image: python:3.10-slim
+  cache:
+    key: "python-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - .cache/pip
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    DATABASE_URL: "sqlite:///:memory:"
+    JUDGE0_URL: "http://localhost:2358"
+    OLLAMA_URL: "http://localhost:11434"
+  before_script:
+    - python -m pip install -r backend/requirements.txt
+  script:
+    - python -m compileall -q backend
+    - cd backend
+    - python -c "from app import app; assert app.title == 'Tutor API'"
+
+frontend:verify:
+  stage: verify
+  image: node:20-alpine
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - npm ci --prefix frontend --cache .npm --prefer-offline
+  script:
+    - npm run lint --prefix frontend
+
+frontend:build:
+  stage: build
+  image: node:20-alpine
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - npm ci --prefix frontend --cache .npm --prefer-offline
+  script:
+    - npm run build --prefix frontend
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 7 days

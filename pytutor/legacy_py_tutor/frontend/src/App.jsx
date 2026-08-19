@@ -21,7 +21,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'dark';
   });
-  const [health, setHealth] = useState(null);
+  const [, setHealth] = useState(null);
   const [user, setUser] = useState(null);
   const [progress, setProgress] = useState(null);
   const [currentProblem, setCurrentProblem] = useState(null);

@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 export default function CodeEditor({
   code,
   setCode,
-  onRun,
   onValidate,
   onSubmit,
   onGetHint,
