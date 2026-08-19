@@ -3,8 +3,11 @@ import Header from "./components/Header";
 import ProblemSidebar from "./components/ProblemSidebar";
 import CodeEditor from "./components/CodeEditor";
 import ResultsPanel from "./components/ResultsPanel";
+import QuestionBank from "./components/QuestionBank";
+import ProfilePage from "./components/ProfilePage";
 import {
   checkHealth,
+  getProblems,
   getUserProgress,
   getProblem,
   validateSolution,
@@ -25,6 +28,11 @@ export default function App() {
   const [sampleTests, setSampleTests] = useState([]);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [questionBankOpen, setQuestionBankOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [allProblems, setAllProblems] = useState([]);
+  const [questionBankLoading, setQuestionBankLoading] = useState(false);
+  const [questionBankError, setQuestionBankError] = useState("");
 
   const [runOutput, setRunOutput] = useState("");
   const [submissionResult, setSubmissionResult] = useState(null);
@@ -66,9 +74,13 @@ export default function App() {
       setUser(null);
       setProgress(null);
       setCurrentProblem(null);
+      setAllProblems([]);
+      setQuestionBankOpen(false);
+      setProfileOpen(false);
       return;
     }
     loadProgress(userId);
+    loadQuestionBank();
   }, [userId]);
 
   const handleVerticalResizeStart = (event) => {
@@ -172,6 +184,25 @@ export default function App() {
 
     if (prog.next_problem) {
       loadProblem(prog.next_problem.id);
+    } else {
+      setCurrentProblem(null);
+      setSampleTests([]);
+      setCode("");
+      setQuestionBankOpen(true);
+      setProfileOpen(false);
+    }
+  };
+
+  const loadQuestionBank = async () => {
+    setQuestionBankLoading(true);
+    setQuestionBankError("");
+    try {
+      const data = await getProblems();
+      setAllProblems(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setQuestionBankError(error.message || "Failed to load questions");
+    } finally {
+      setQuestionBankLoading(false);
     }
   };
 
@@ -282,7 +313,15 @@ export default function App() {
   const handleNextProblem = () => {
     if (progress?.next_problem) {
       loadProblem(progress.next_problem.id);
+      setQuestionBankOpen(false);
+      setProfileOpen(false);
     }
+  };
+
+  const handleQuestionSelect = async (problemId) => {
+    await loadProblem(problemId);
+    setQuestionBankOpen(false);
+    setProfileOpen(false);
   };
 
   const handleAuthChange = (field, value) => {
@@ -317,10 +356,47 @@ export default function App() {
     setUser(null);
     setProgress(null);
     setCurrentProblem(null);
+    setAllProblems([]);
+    setQuestionBankOpen(false);
+    setProfileOpen(false);
+    setQuestionBankError("");
     setCode("");
     setRunOutput("");
     setSubmissionResult(null);
     setAiFeedback("");
+  };
+
+  const handleQuestionBankToggle = () => {
+    const nextOpen = !questionBankOpen;
+    if (!nextOpen && !currentProblem) return;
+    setProfileOpen(false);
+    setQuestionBankOpen(nextOpen);
+    if (nextOpen && allProblems.length === 0 && !questionBankLoading) {
+      loadQuestionBank();
+    }
+  };
+
+  const handleOpenProfile = () => {
+    setProfileOpen(true);
+    setQuestionBankOpen(false);
+    if (allProblems.length === 0 && !questionBankLoading) {
+      loadQuestionBank();
+    }
+  };
+
+  const handleOpenQuestionBankFromProfile = () => {
+    setProfileOpen(false);
+    setQuestionBankOpen(true);
+    if (allProblems.length === 0 && !questionBankLoading) {
+      loadQuestionBank();
+    }
+  };
+
+  const handleOpenRecommendedFromProfile = async () => {
+    if (!progress?.next_problem?.id) return;
+    await loadProblem(progress.next_problem.id);
+    setQuestionBankOpen(false);
+    setProfileOpen(false);
   };
 
   const toggleTheme = () => {
@@ -390,7 +466,7 @@ export default function App() {
     );
   }
 
-  if (!currentProblem) {
+  if (!currentProblem && !questionBankOpen && !profileOpen) {
     return (
       <div className="app loading-screen">
         <div className="loader">
@@ -405,53 +481,85 @@ export default function App() {
     <div className="app">
       <Header
         user={user}
+        progress={progress}
         theme={theme}
         onThemeToggle={toggleTheme}
         onLogout={handleLogout}
+        questionBankOpen={questionBankOpen}
+        onToggleQuestionBank={handleQuestionBankToggle}
+        onOpenProfile={handleOpenProfile}
       />
 
-      <div className="workspace" ref={workspaceRef}>
-        <div className="sidebar-pane" ref={sidebarRef}>
-          <ProblemSidebar
-            problem={currentProblem}
-            sampleTests={sampleTests}
+      {profileOpen ? (
+        <div className="profile-shell">
+          <ProfilePage
+            user={user}
+            progress={progress}
+            problems={allProblems}
             solvedProblems={progress?.solved_problems || []}
-            onNextProblem={handleNextProblem}
+            onOpenQuestionBank={handleOpenQuestionBankFromProfile}
+            onOpenRecommended={handleOpenRecommendedFromProfile}
           />
         </div>
-        <div
-          className="vertical-resize-handle"
-          ref={verticalHandleRef}
-          onMouseDown={handleVerticalResizeStart}
-        ></div>
-        <div className="right-panel" ref={rightPanelRef}>
-          <div className="editor-pane" ref={editorContainerRef}>
-            <CodeEditor
-              code={code}
-              setCode={setCode}
-              onValidate={handleValidate}
-              onSubmit={handleSubmit}
-              onGetHint={handleGetHint}
-              loading={loading}
-              hasOutput={!!runOutput || !!submissionResult}
-              theme={theme}
-              currentProblemId={currentProblem?.id}
+      ) : questionBankOpen ? (
+        <div className="question-bank-shell">
+          {questionBankLoading ? (
+            <div className="question-bank-loading">Loading questions...</div>
+          ) : questionBankError ? (
+            <div className="question-bank-error">{questionBankError}</div>
+          ) : (
+            <QuestionBank
+              problems={allProblems}
+              solvedProblems={progress?.solved_problems || []}
+              recommendedProblemId={progress?.next_problem?.id}
+              onSelectProblem={handleQuestionSelect}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="workspace" ref={workspaceRef}>
+          <div className="sidebar-pane" ref={sidebarRef}>
+            <ProblemSidebar
+              problem={currentProblem}
+              sampleTests={sampleTests}
+              solvedProblems={progress?.solved_problems || []}
+              onNextProblem={handleNextProblem}
             />
           </div>
           <div
-            className="horizontal-resize-handle"
-            ref={horizontalHandleRef}
-            onMouseDown={handleHorizontalResizeStart}
+            className="vertical-resize-handle"
+            ref={verticalHandleRef}
+            onMouseDown={handleVerticalResizeStart}
           ></div>
-          <div className="results-pane" ref={resultsContainerRef}>
-            <ResultsPanel
-              runOutput={runOutput}
-              submissionResult={submissionResult}
-              aiFeedback={aiFeedback}
-            />
+          <div className="right-panel" ref={rightPanelRef}>
+            <div className="editor-pane" ref={editorContainerRef}>
+              <CodeEditor
+                code={code}
+                setCode={setCode}
+                onValidate={handleValidate}
+                onSubmit={handleSubmit}
+                onGetHint={handleGetHint}
+                loading={loading}
+                hasOutput={!!runOutput || !!submissionResult}
+                theme={theme}
+                currentProblemId={currentProblem?.id}
+              />
+            </div>
+            <div
+              className="horizontal-resize-handle"
+              ref={horizontalHandleRef}
+              onMouseDown={handleHorizontalResizeStart}
+            ></div>
+            <div className="results-pane" ref={resultsContainerRef}>
+              <ResultsPanel
+                runOutput={runOutput}
+                submissionResult={submissionResult}
+                aiFeedback={aiFeedback}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
