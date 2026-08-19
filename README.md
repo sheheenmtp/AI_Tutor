@@ -1,121 +1,244 @@
-# AI Tutor Platform
+# AI Tutor
 
-AI Tutor is a full-stack coding practice app with:
-- FastAPI backend for problems, submissions, scoring, and AI hints
-- React + Monaco frontend for solving problems
-- Judge0 for code execution
-- Ollama for level-aware feedback
+A full-stack coding practice platform for learners to solve problems, validate code, track progress, and receive AI-guided hints.
 
-## Knowledge Transfer
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
 
-For handover and system internals, see:
-- [`KNOWLEDGE_TRANSFER.md`](KNOWLEDGE_TRANSFER.md)
-- [`ADAPTIVE_SYSTEM_DEEP_DIVE.md`](ADAPTIVE_SYSTEM_DEEP_DIVE.md)
+## Overview
+AI Tutor is a coding practice and adaptive learning application designed to help a learner improve through guided problem solving. The platform combines a browser-based editor, persistent user progress, code execution, and AI-powered feedback to support a more effective learning flow.
 
-## Tech Stack
+Users can:
+- register and log in
+- browse a curated set of coding challenges
+- receive recommendations based on progress and concept mastery
+- write and edit code in a Monaco-based editor
+- validate solutions against sample and hidden tests
+- submit work and track scores
+- request level-aware AI hints and explanations
 
-- Frontend: React (Vite), Monaco Editor
-- Backend: FastAPI, SQLAlchemy
-- Database: PostgreSQL
-- Execution Engine: Judge0
-- AI Engine: Ollama (`qwen2.5-coder:14b`)
+## Key Features
+- User authentication and profile tracking
+- Adaptive recommendation engine for challenge sequencing
+- Problem bank with difficulty and concept organization
+- Browser-based coding environment
+- Validation and scoring through Judge0
+- Submission history and progress persistence in PostgreSQL
+- AI feedback generation from Ollama
+- Responsive frontend experience built with React and Vite
 
-## Requirements
+## Architecture
+The project uses a simple three-layer architecture:
 
+1. Frontend
+   - React + Vite single-page app
+   - Renders the coding workspace, question bank, and profile panels
+   - Calls the API for auth, problem data, validation, and AI feedback
+
+2. Backend
+   - FastAPI application in backend/app.py
+   - SQLAlchemy models and DB setup in backend/models.py
+   - Serves endpoints for registration, login, recommendations, problem access, validation, submissions, and streaming feedback
+
+3. External services
+   - PostgreSQL stores users, concepts, problems, submissions, and mastery state
+   - Judge0 executes submitted code and checks expected output
+   - Ollama provides AI-generated hints and explanations
+
+## Technology Stack
 - Python 3.10+
-- Node.js 18+
-- PostgreSQL running with a created database
-- Judge0 running and reachable
-- Ollama running and reachable
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- PostgreSQL
+- React
+- Vite
+- Monaco Editor
+- Docker Compose
+- Judge0
+- Ollama
+- Python requests and python-dotenv
 
-## Environment Variables
-
-Create `backend/.env`:
-
-```env
-DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:5432/<db_name>
-JUDGE0_URL=http://localhost:2358
-OLLAMA_URL=http://localhost:11434
+## Project Structure
+```text
+AI_Tutor/
+├── backend/
+│   ├── app.py               # FastAPI routes and logic
+│   ├── models.py            # SQLAlchemy models and DB session setup
+│   ├── requirements.txt     # Python dependencies
+│   ├── seed_data.py         # Seed problem and concept data
+│   ├── .env.example         # Sample backend env file
+│   └── .venv/               # Local Python environment (ignored by Git)
+├── frontend/
+│   ├── src/                 # React application source
+│   ├── public/              # Static assets
+│   ├── package.json         # Frontend dependencies and scripts
+│   ├── .env.example         # Sample frontend env file
+│   ├── vite.config.js       # Vite config
+│   ├── package-lock.json    # Frontend lockfile
+│   └── .gitignore           # Frontend-specific ignores
+├── docker-compose.yml       # PostgreSQL service definition
+├── Makefile                 # Local setup and automation shortcuts
+├── run.sh                   # Starts backend + frontend together
+├── README.md                # Project overview and setup guide
+├── LICENSE                  # Project license
+├── .gitignore               # Runtime and secret exclusions
+├── .env.example             # Shared environment placeholders
+├── database.json            # Local/reference dataset
+├── codemastery_full.sql     # Full SQL dump/export
+├── codemastery_schema.sql   # Schema export
+├── problem_concept_backfill.sql
+├── user_auth_migration.sql
+├── PROJECT_INFO.md          # Project metadata notes
+├── KNOWLEDGE_TRANSFER.md    # Design and handoff notes
+├── PROJECT_WORKING.md       # Implementation detail notes
+├── ADAPTIVE_SYSTEM_DEEP_DIVE.md
+├── .gitlab-ci.yml          # GitLab CI config retained for reference
+└── .gitignore
 ```
 
-Create `frontend/.env`:
+## Installation
+### Prerequisites
+- Python 3.10 or newer
+- Node.js 20 or newer
+- Docker and Docker Compose
+- Git
 
-```env
-VITE_API_URL=http://localhost:8000
+### 1) Clone the repository
+```bash
+git clone https://github.com/sheheenmtp/AI_Tutor.git
+cd AI_Tutor
 ```
 
-## Local Setup
+### 2) Create environment files
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
 
-1. Backend setup
+### 3) Install dependencies
+```bash
+python3 -m venv backend/.venv
+source backend/.venv/bin/activate
+pip install -r backend/requirements.txt
+npm ci --prefix frontend
+```
 
+### 4) Start the database
+```bash
+docker compose up -d postgres
+```
+
+### 5) Seed the application data
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-2. Frontend setup
-
-```bash
-cd frontend
-npm install
-```
-
-3. Seed starter problems
-
-```bash
-cd backend
-source venv/bin/activate
+source .venv/bin/activate
 python seed_data.py
 ```
 
-4. Run the app (from repo root)
+## Environment Variables
+This project uses environment variables for local service configuration.
+
+Example root file:
+```env
+DATABASE_URL=postgresql+psycopg2://<username>:<password>@<host>:5432/<database_name>
+JUDGE0_URL=http://localhost:2358
+OLLAMA_URL=http://localhost:11434
+VITE_API_URL=http://localhost:8000
+```
+
+Use placeholder values only. Never commit real credentials or local `.env` files.
+
+## Running the Application
+### Backend
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Frontend
+```bash
+cd frontend
+npm run dev -- --host
+```
+
+### Database
+```bash
+docker compose up -d postgres
+```
+
+### Required AI services
+Judge0 and Ollama should be reachable locally before validation or feedback calls:
+- http://localhost:2358
+- http://localhost:11434
+
+## AI/LLM Setup
+This app expects Ollama to be running with the model `qwen2.5-coder:14b` available.
 
 ```bash
-chmod +x run.sh
-./run.sh
+ollama pull qwen2.5-coder:14b
 ```
 
-App URLs:
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8000`
+The backend calls Ollama at `/api/generate` and expects either streaming or non-streaming responses for hint generation.
 
-## API Endpoints
+## API
+The backend exposes REST endpoints for its main workflows.
 
-- `GET /health`
-- `POST /auth/register`
-- `POST /auth/login`
-- `GET /users/{user_id}`
-- `GET /users/{user_id}/progress`
-- `GET /users/{user_id}/next-recommendation`
-- `GET /problems`
-- `GET /problems/{problem_id}`
-- `POST /run`
-- `POST /validate`
-- `POST /submit`
-- `POST /feedback`
-- `POST /feedback/stream`
-- `GET /languages`
+Key routes:
+- `GET /health` — checks backend, Judge0, and Ollama status
+- `POST /auth/register` — create a new user
+- `POST /auth/login` — authenticate a user
+- `GET /problems` — fetch the problem list
+- `GET /problems/{problem_id}` — fetch a specific problem and sample tests
+- `POST /validate` — validate code without saving a submission
+- `POST /submit` — run tests, save a submission, and update progress
+- `POST /feedback` — generate a single AI feedback response
+- `POST /feedback/stream` — stream AI feedback chunks to the frontend
+- `GET /languages` — list Judge0-supported languages
 
-## Project Structure
+## Development
+For local development:
 
-```text
-.
-├── backend/
-│   ├── app.py
-│   ├── models.py
-│   ├── requirements.txt
-│   └── seed_data.py
-├── frontend/
-│   ├── src/
-│   ├── public/
-│   └── package.json
-├── QUICKSTART.md
-├── run.sh
-└── README.md
+```bash
+make setup
+make db-up
+cd backend && source .venv/bin/activate && python seed_data.py
+make dev
 ```
 
-## Notes
+The application is designed to run locally with PostgreSQL and the external Judge0/Ollama services online. If these services are offline, the app will still start, but execution and AI hint generation will not work until they are available.
 
-- `run.sh` reads `backend/.env` if present and uses those URLs for Judge0 and Ollama.
+## Testing
+This repository does not currently include a dedicated automated test suite. The practical validation used in this project is:
+
+```bash
+python3 -m compileall -q backend
+npm run build --prefix frontend
+```
+
+## Limitations
+- There is no production-grade deployment setup for cloud hosting.
+- The app depends on local Judge0 and Ollama services.
+- The Ollama model is hardcoded in the backend and should be kept in sync with the local installation.
+- The repository does not yet include an automated GitHub Actions workflow.
+- The database is configured for local development rather than a managed production environment.
+
+## Future Improvements
+- Add automated backend and frontend tests
+- Add GitHub Actions checks for linting and build validation
+- Support configurable Ollama model selection through environment variables
+- Improve production deployment configuration
+- Expand the problem bank and learner analytics
+
+## Developer
+**Muhammed Sheheen M T P**
+
+## Original Repository
+https://github.com/sheheenmtp/AI_Tutor
+
+This repository is intended for public GitHub presentation while preserving the original developer attribution and implementation history.
