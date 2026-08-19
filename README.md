@@ -128,6 +128,59 @@ AI_Tutor/
 └── .gitignore
 ```
 
+## Repository Modules
+
+This monorepo contains two separately runnable applications. They are organized so you can work on, start, and verify each app independently.
+
+- **`course_tutor/` — Adaptive course platform**
+   - Path: `course_tutor/`
+   - Backend: FastAPI entry `course_tutor/backend/main.py` (uses JSONB fields — PostgreSQL required). Default port: `8000`.
+   - Frontend: Vite app in `course_tutor/frontend/`. Default dev port: `5174`.
+   - DB: create a Postgres database named `course_tutor` (or point `DATABASE_URL` to your DB). Use `course_tutor/backend/seed.py` to seed content after the backend has created tables.
+   - Start (example):
+
+   ```bash
+   # backend
+   cd course_tutor/backend
+   source .venv/bin/activate  # if using the included venv
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+   # frontend
+   cd ../frontend
+   npm run dev -- --host
+   ```
+
+- **`pytutor/` — Coding-practice platform (legacy PyTutor moved)**
+   - Path: `pytutor/legacy_py_tutor/` contains the original PyTutor application (backend + frontend + dumps).
+   - Shims: `pytutor/backend/app.py` and `pytutor/__init__.py` let you run the app via the `pytutor` package (the shim imports from the legacy folder). Default shim backend port: `8001` in our local setup.
+   - Frontend: legacy frontend at `pytutor/legacy_py_tutor/frontend/`. Default dev port: `5175`. If the frontend points to the wrong backend, update `VITE_API_URL` in that folder's `.env`.
+   - Seed: run `pytutor/legacy_py_tutor/backend/seed_data.py` after the PyTutor backend has created tables.
+   - Start (example):
+
+   ```bash
+   # shim backend (delegates to legacy app)
+   uvicorn pytutor.backend.app:app --host 0.0.0.0 --port 8001 --reload
+
+   # legacy frontend
+   cd pytutor/legacy_py_tutor/frontend
+   npm run dev -- --host
+   ```
+
+Verification (quick smoke checks)
+- Course Tutor health: `curl http://localhost:8000/health`
+- PyTutor health: `curl http://localhost:8001/health`
+- Register a quick user on each backend:
+
+```bash
+curl -X POST http://localhost:8000/auth/register -H 'Content-Type: application/json' -d '{"email":"test@example.com","password":"pass"}'
+curl -X POST http://localhost:8001/auth/register -H 'Content-Type: application/json' -d '{"email":"test2@example.com","password":"pass"}'
+```
+
+Notes and gotchas
+- `course_tutor` requires PostgreSQL (JSONB) — do not run it on SQLite.
+- We intentionally moved the original `py_tutor/` into `pytutor/legacy_py_tutor/` and added lightweight shims in `pytutor/` so imports and run commands continue to work during the migration.
+- Do not commit real secrets — only `.env.example` files are tracked. Large SQL dumps are included in the legacy folder; confirm company policy before pushing them to a remote.
+
 ## Installation
 ### Prerequisites
 - Python 3.10 or newer
